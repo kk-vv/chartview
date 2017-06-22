@@ -241,7 +241,7 @@ extension ZXLineChartView {
         let max = self.maxY()
         
         for count in (1..<5).reversed() {
-            let label = UILabel.init(frame: CGRect(x: 14, y: (ZXLineChartConstant.chartHeight / 4) * CGFloat(4 - count), width: 60, height: 22))
+            let label = UILabel.init(frame: CGRect(x: 14, y: (ZXLineChartConstant.chartHeight / 4) * CGFloat(4 - count), width: 200, height: 22))
             label.font = UIFont.systemFont(ofSize: 12)
             label.textAlignment = .left
             label.textColor = UIColor.lightGray
@@ -622,21 +622,31 @@ extension ZXLineChartView {
             self.popView.addSubview(self.popLabel)
             self.addSubview(self.popView)
             self.bringSubview(toFront: self.popView)
-            let num = values[index]
-            let str = "\(String(describing: num))"
+//            let num = values[index]
+            
+            let str = "\(values[index])"
             self.popLabel.text = str
             
             var textSize = (str as NSString).boundingRect(with: CGSize(width: 200, height: 20), options: NSStringDrawingOptions(rawValue: NSStringDrawingOptions.usesLineFragmentOrigin.rawValue|NSStringDrawingOptions.truncatesLastVisibleLine.rawValue), attributes: [NSFontAttributeName:self.popLabel.font], context: nil).size
-            textSize.width += 16
+            textSize.width += 20
             self.popLabel.frame = CGRect(x: 0, y: 0, width: textSize.width, height: 20)
             self.popView.frame = CGRect(x: 0, y: 0, width: textSize.width, height: 26)
             let point = pointValues[index].cgPointValue
+            
+            var offsetX:CGFloat = 0 //处理 poplabel 超出屏幕
+            if (point.x - textSize.width / 2.0) < 0 { //左边超出边界
+                offsetX = fabs(point.x - textSize.width / 2.0)
+            } else if (point.x + textSize.width / 2.0) > UIScreen.main.bounds.width { //右边超出边界
+                offsetX = -fabs((UIScreen.main.bounds.width - point.x) - textSize.width / 2.0)
+            }
+            let startCenter = CGPoint(x: point.x + offsetX, y: point.y)
+            let endCenter = CGPoint(x: point.x + offsetX, y: point.y - 20)
+            
+            
             let popviewMask = CAShapeLayer()
-            popviewMask.path = popViewMaskPath(self.popView.frame)
+            popviewMask.path = popViewMaskPath(self.popView.frame,offsetX: offsetX)
             self.popView.layer.mask = popviewMask
             
-            let startCenter = CGPoint(x: point.x, y: point.y)
-            let endCenter = CGPoint(x: point.x, y: point.y - 20)
             self.popView.alpha = 0
             self.popView.center = startCenter
             UIView.animate(withDuration: 0.25, animations: {
@@ -648,17 +658,33 @@ extension ZXLineChartView {
         }
     }
     //点值边框路径
-    func popViewMaskPath(_ rect:CGRect) -> CGPath {
+    func popViewMaskPath(_ rect:CGRect,offsetX:CGFloat) -> CGPath {
+        //Draw     ______
+        //        (__  __)
+        //           \/
         let path = UIBezierPath()
         let beginX = CGFloat(10)
         let rRatio = CGFloat(rect.size.height - 20)
         path.move(to: CGPoint(x: beginX, y: 0))
+        var fixX = -(offsetX / 2.0)
+        if fixX < 0 {
+            fixX -= 5
+        } else if fixX > 0 {
+            fixX += 5
+        }
+        //1______
         path.addLine(to: CGPoint(x: rect.size.width - beginX, y: 0.0))
+        //2)
         path.addArc(withCenter: CGPoint(x: rect.size.width - beginX, y: 10), radius: 10, startAngle: -CGFloat( Double.pi / 2.0), endAngle: CGFloat(Double.pi / 2), clockwise: true)
-        path.addLine(to: CGPoint(x: rect.size.width / 2 + rRatio, y: 20))
-        path.addArc(withCenter: CGPoint(x: rect.size.width / 2 + rRatio, y: rect.size.height), radius: rRatio, startAngle: -CGFloat( Double.pi / 2.0), endAngle: CGFloat( Double.pi), clockwise: false)
-        path.addArc(withCenter: CGPoint(x: rect.size.width / 2 - rRatio, y: rect.size.height), radius: rRatio, startAngle: 0, endAngle: -CGFloat( Double.pi / 2.0), clockwise: false)
+        //3__
+        path.addLine(to: CGPoint(x: rect.size.width / 2 + rRatio + fixX, y: 20))
+        //4/
+        path.addArc(withCenter: CGPoint(x: rect.size.width / 2 + rRatio + fixX, y: rect.size.height), radius: rRatio, startAngle: -CGFloat( Double.pi / 2.0), endAngle: CGFloat( Double.pi), clockwise: false)
+        //5\
+        path.addArc(withCenter: CGPoint(x: rect.size.width / 2 - rRatio + fixX, y: rect.size.height), radius: rRatio, startAngle: 0, endAngle: -CGFloat( Double.pi / 2.0), clockwise: false)
+        //6__
         path.addLine(to: CGPoint(x: beginX, y: 20))
+        //7(
         path.addArc(withCenter: CGPoint(x: beginX, y: 10), radius: 10, startAngle: CGFloat( Double.pi / 2.0), endAngle: CGFloat( Double.pi / 2.0 * 3), clockwise: true)
         path.close()
         return path.cgPath
